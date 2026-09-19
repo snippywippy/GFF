@@ -78,7 +78,8 @@
   }
   .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
   .nm{margin:0;font-size:16.5px;font-weight:650;letter-spacing:-.01em;line-height:1.25}
-  .dist{flex:0 0 auto;font-size:13px;font-weight:650;color:var(--accent);padding-top:2px;white-space:nowrap}
+  .dist{flex:0 0 auto;font-size:13px;font-weight:650;color:var(--accent);padding-top:2px;white-space:nowrap;text-align:right}
+  .dist small{display:block;font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:.02em}
   .meta{margin:5px 0 0;font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 9px;align-items:center}
   .star{color:var(--gold);font-weight:650}
   .open{color:#2e8b57;font-weight:600}
@@ -107,14 +108,14 @@
         <button id="mDedicated" aria-pressed="false">Dedicated GF</button>
       </div>
       <div class="row">
-        <select id="radius" aria-label="Search radius" style="flex:1">
-          <option value="3000">Within 2 mi</option>
-          <option value="8000" selected>Within 5 mi</option>
-          <option value="16000">Within 10 mi</option>
-          <option value="40000">Within 25 mi</option>
+        <select id="maxmin" aria-label="Maximum drive time" style="flex:1">
+          <option value="10">Within 10 min</option>
+          <option value="20" selected>Within 20 min</option>
+          <option value="30">Within 30 min</option>
+          <option value="45">Within 45 min</option>
         </select>
         <select id="sort" aria-label="Sort by" style="flex:1">
-          <option value="dist">Nearest first</option>
+          <option value="dist">Quickest first</option>
           <option value="rating">Top rated</option>
         </select>
       </div>
@@ -136,7 +137,7 @@
 
 <script>
 (function(){
-  var mode='friendly', coords=null, last=[];
+  var mode='friendly', coords=null, last=[], estimated=false;
   var $=function(id){return document.getElementById(id)};
   var statusEl=$('status'), listEl=$('list'), goBtn=$('go');
 
@@ -155,7 +156,7 @@
     if(coords) search();
   }
   $('sort').onchange=function(){ render(last); };
-  $('radius').onchange=function(){ if(coords) search(); };
+  $('maxmin').onchange=function(){ if(coords) search(); };
   $('q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); this.blur(); locate(); }});
 
   goBtn.onclick=locate;
@@ -163,7 +164,7 @@
   function locate(){
     if(!navigator.geolocation){ return say('This browser will not share a location.',true); }
     goBtn.disabled=true;
-    say('Getting your location…');
+    say('Getting your location\u2026');
     listEl.innerHTML='';
     navigator.geolocation.getCurrentPosition(function(pos){
       coords={lat:pos.coords.latitude, lng:pos.coords.longitude};
@@ -171,35 +172,49 @@
     },function(err){
       goBtn.disabled=false;
       if(err.code===1){
-        say('Location permission is off. On iPhone: Settings → Privacy & Security → Location Services → Safari Websites → While Using, then reload.',true);
+        say('Location permission is off. On iPhone: Settings \u2192 Privacy & Security \u2192 Location Services \u2192 Safari Websites \u2192 While Using, then reload.',true);
       }else{
         say('Could not get a location fix. Try again near a window or on Wi-Fi.',true);
       }
     },{enableHighAccuracy:true, timeout:12000, maximumAge:120000});
   }
 
+  // How wide to cast the Places net for a given drive-time budget. Deliberately
+  // generous (highway speed) so the real drive-time filter does the trimming.
+  function searchRadius(mins){
+    return Math.min(50000, Math.max(2000, Math.round((mins/60)*50*1609)));
+  }
+
   function search(){
     goBtn.disabled=true;
-    say('Searching…');
+    estimated=false;
+    say('Searching\u2026');
+    var mins=parseInt($('maxmin').value,10);
     var u='/api/search?lat='+coords.lat+'&lng='+coords.lng
-         +'&radius='+$('radius').value+'&mode='+mode
+         +'&radius='+searchRadius(mins)+'&mode='+mode
          +'&q='+encodeURIComponent($('q').value||'');
+
     fetch(u).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
     .then(function(res){
-      goBtn.disabled=false;
       if(!res.ok){
+        goBtn.disabled=false;
         var m=res.j&&res.j.message||'Search failed.';
         if(res.j&&res.j.error==='missing_key'){
-          m='No Google API key configured yet. Add GOOGLE_MAPS_API_KEY in Vercel → Settings → Environment Variables, then redeploy.';
+          m='No Google API key configured yet. Add GOOGLE_MAPS_API_KEY in Vercel \u2192 Settings \u2192 Environment Variables, then redeploy.';
         }
         return say(m,true);
       }
-      last=res.j.places||[];
-      if(!last.length){
-        return say('Nothing found in that radius. Try a wider radius or switch to GF friendly.');
+      var places=res.j.places||[];
+      if(!places.length){
+        goBtn.disabled=false;
+        return say('Nothing found nearby. Try a longer drive time or switch to GF friendly.');
       }
-      statusEl.style.display='none';
-      render(last);
+      say('Checking drive times\u2026');
+      return addDriveTimes(places).then(function(){
+        goBtn.disabled=false;
+        last=places;
+        render(last);
+      });
     })
     .catch(function(e){
       goBtn.disabled=false;
@@ -207,7 +222,35 @@
     });
   }
 
-  function miles(a,b){
+  function addDriveTimes(places){
+    var usable=places.filter(function(p){ return p.lat!=null && p.lng!=null; });
+    if(!usable.length){ estimated=true; places.forEach(estimateOne); return Promise.resolve(); }
+    var dest=usable.map(function(p){ return p.lat+','+p.lng; }).join(';');
+    var u='/api/drivetime?originLat='+coords.lat+'&originLng='+coords.lng
+         +'&destinations='+encodeURIComponent(dest);
+
+    return fetch(u).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+    .then(function(res){
+      if(!res.ok || !res.j.results){ throw new Error((res.j&&res.j.error)||'unavailable'); }
+      res.j.results.forEach(function(dt,i){
+        if(dt){ usable[i].minutes=dt.minutes; usable[i].driveMiles=dt.miles; }
+      });
+      places.forEach(function(p){ if(p.minutes==null) estimateOne(p); });
+    })
+    .catch(function(){
+      estimated=true;
+      places.forEach(estimateOne);
+    });
+  }
+
+  function estimateOne(p){
+    if(p.lat==null||p.lng==null){ p.minutes=null; p.estimated=true; return; }
+    // rough: ~30mph average on mixed roads, plus a little for lights and parking
+    p.minutes=Math.max(4, Math.round((straightMiles(coords,p)/30)*60+3));
+    p.estimated=true;
+  }
+
+  function straightMiles(a,b){
     var R=3958.8, t=Math.PI/180;
     var dLat=(b.lat-a.lat)*t, dLng=(b.lng-a.lng)*t;
     var x=Math.sin(dLat/2)*Math.sin(dLat/2)
@@ -219,30 +262,45 @@
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
   function render(items){
-    var rows=items.map(function(p){
-      p._mi = (p.lat!=null&&p.lng!=null) ? miles(coords,p) : 9999;
-      return p;
-    });
-    if($('sort').value==='rating'){
-      rows.sort(function(a,b){ return (b.rating||0)-(a.rating||0) || a._mi-b._mi; });
-    }else{
-      rows.sort(function(a,b){ return a._mi-b._mi; });
+    var cap=parseInt($('maxmin').value,10);
+    var within=items.filter(function(p){ return p.minutes!=null && p.minutes<=cap; });
+    var note='';
+
+    if(!within.length){
+      within=items.slice();
+      note='Nothing within '+cap+' min \u2014 showing the closest anyway.';
     }
 
-    listEl.innerHTML=rows.map(function(p){
+    if($('sort').value==='rating'){
+      within.sort(function(a,b){ return (b.rating||0)-(a.rating||0) || (a.minutes||999)-(b.minutes||999); });
+    }else{
+      within.sort(function(a,b){ return (a.minutes||999)-(b.minutes||999); });
+    }
+
+    if(estimated){
+      note=(note?note+' ':'')+'Drive times are rough estimates \u2014 live routing was unavailable.';
+    }
+    if(note){ say(note); } else { statusEl.style.display='none'; }
+
+    listEl.innerHTML=within.map(function(p){
       var stars = p.rating
-        ? '<span class="star">★ '+p.rating.toFixed(1)+'</span><span>('+p.reviews+')</span>'
+        ? '<span class="star">\u2605 '+p.rating.toFixed(1)+'</span><span>('+p.reviews+')</span>'
         : '<span>No rating</span>';
       var open = p.openNow===true ? '<span class="open">Open</span>'
                : p.openNow===false ? '<span class="shut">Closed</span>' : '';
       var type = p.type ? '<span>'+esc(p.type)+'</span>' : '';
-      var d = p._mi<9999 ? p._mi.toFixed(1)+' mi' : '';
+
+      var time='';
+      if(p.minutes!=null){
+        time=(p.estimated?'~':'')+p.minutes+' min';
+        if(p.driveMiles!=null){ time+='<small>'+p.driveMiles+' mi</small>'; }
+      }
 
       var maps='https://maps.apple.com/?q='+encodeURIComponent(p.name)+'&ll='+p.lat+','+p.lng;
       var fmgf='https://www.google.com/search?q='+encodeURIComponent('site:findmeglutenfree.com '+p.name);
 
       return '<li>'
-        + '<div class="top"><h2 class="nm">'+esc(p.name)+'</h2><div class="dist">'+d+'</div></div>'
+        + '<div class="top"><h2 class="nm">'+esc(p.name)+'</h2><div class="dist">'+time+'</div></div>'
         + '<p class="meta">'+stars+open+type+'</p>'
         + '<p class="addr">'+esc(p.address)+'</p>'
         + '<div class="acts">'
