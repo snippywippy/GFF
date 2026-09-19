@@ -73,6 +73,19 @@
     background:none;border:0;color:var(--accent);font:inherit;font-weight:650;
     text-decoration:underline;cursor:pointer;padding:0;margin-left:6px;
   }
+  #elsewhere{display:flex;flex-direction:column;gap:8px}
+  .ordiv{display:flex;align-items:center;gap:10px;margin:1px 0}
+  .ordiv::before,.ordiv::after{content:'';flex:1;height:1px;background:var(--line)}
+  .ordiv span{
+    font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);
+  }
+  /* once local results are showing, this block drops below them */
+  #elsewhere.below{
+    max-width:680px;margin:20px auto 0;padding:17px 16px 0;
+    border-top:1px solid var(--line);
+  }
+  #elsewhere.below .ordiv{display:none}
   .go{
     width:100%;border:0;border-radius:12px;background:var(--accent);
     color:#fff;font:700 16px/1 inherit;padding:15px;margin-top:2px;cursor:pointer;
@@ -90,6 +103,19 @@
     background:none;border:0;color:var(--accent);font:inherit;font-weight:650;
     text-decoration:underline;cursor:pointer;padding:0;margin-left:6px;
   }
+  #elsewhere{display:flex;flex-direction:column;gap:8px}
+  .ordiv{display:flex;align-items:center;gap:10px;margin:1px 0}
+  .ordiv::before,.ordiv::after{content:'';flex:1;height:1px;background:var(--line)}
+  .ordiv span{
+    font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);
+  }
+  /* once local results are showing, this block drops below them */
+  #elsewhere.below{
+    max-width:680px;margin:20px auto 0;padding:17px 16px 0;
+    border-top:1px solid var(--line);
+  }
+  #elsewhere.below .ordiv{display:none}
   .go{color:#0d1512} }
   .go:disabled{opacity:.55}
 
@@ -150,9 +176,12 @@
         <input type="search" id="q" placeholder="pizza, breakfast, sushi…" autocomplete="off" enterkeyhint="search">
       </div>
       <button class="go" id="go">Find places near me</button>
-      <div class="row">
-        <button class="mini" id="goPlace">Find places here</button>
-        <input type="search" id="place" placeholder="City, zip, or address" autocomplete="off" enterkeyhint="go">
+      <div id="elsewhere">
+        <div class="ordiv"><span>or</span></div>
+        <div class="row">
+          <button class="mini" id="goPlace">Find places here</button>
+          <input type="search" id="place" placeholder="City, zip, or address" autocomplete="off" enterkeyhint="go">
+        </div>
       </div>
     </div>
   </div>
@@ -172,9 +201,11 @@
 (function(){
   var mode='friendly', coords=null, last=[], estimated=false, originLabel=null;
   var $=function(id){return document.getElementById(id)};
+  var elsewhereHome=null;
   var statusEl=$('status'), listEl=$('list'), goBtn=$('go');
 
   function say(msg,isErr){
+    if(!listEl.children.length) positionElsewhere(false);
     statusEl.textContent=msg;
     statusEl.className=isErr?'error':'';
     statusEl.style.display='';
@@ -197,6 +228,22 @@
   $('place').addEventListener('keydown',function(e){
     if(e.key==='Enter'){ e.preventDefault(); this.blur(); usePlace(); }
   });
+
+  // After searching by current location, demote the "somewhere else" block below
+  // the results — you rarely want to search a second place right after.
+  function positionElsewhere(below){
+    var el=$('elsewhere');
+    if(!elsewhereHome) elsewhereHome=el.parentNode;
+    if(below){
+      if(el.parentNode!==listEl.parentNode || el.previousSibling!==listEl){
+        listEl.parentNode.insertBefore(el, listEl.nextSibling);
+      }
+      el.classList.add('below');
+    }else{
+      if(el.parentNode!==elsewhereHome) elsewhereHome.appendChild(el);
+      el.classList.remove('below');
+    }
+  }
 
   function showOrigin(){
     var el=$('origin');
@@ -353,6 +400,8 @@
       note=(note?note+' ':'')+'Drive times are rough estimates \u2014 live routing was unavailable.';
     }
     if(note){ say(note); } else { statusEl.style.display='none'; }
+
+    positionElsewhere(!originLabel && within.length>0);
 
     listEl.innerHTML=within.map(function(p){
       var stars = p.rating
