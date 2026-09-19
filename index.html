@@ -94,7 +94,8 @@
     border:1px solid var(--line);color:var(--ink);background:transparent;
   }
   .acts a.pri{grid-column:1/-1;background:var(--accent-soft);border-color:transparent;color:var(--accent)}
-  footer{max-width:680px;margin:26px auto 0;padding:0 16px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.6}
+  footer{max-width:680px;margin:26px auto 0;padding:0 16px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.65}
+  footer strong{color:var(--ink);font-weight:600}
 </style>
 </head>
 <body>
@@ -131,8 +132,9 @@
 <ul id="list"></ul>
 
 <footer>
-  Ratings and listings from Google. Always call ahead and confirm prep practices —<br>
-  cross-contact risk is not something a star rating can tell you.
+  These are Google matches for gluten-free terms &mdash; not a celiac-vetted list.<br>
+  <strong>Dedicated GF</strong> biases the search; it does not verify anything.<br>
+  Tap <strong>Find Me GF</strong> for community celiac reports, and call ahead about cross-contact.
 </footer>
 
 <script>
@@ -297,7 +299,10 @@
       }
 
       var maps='https://maps.apple.com/?q='+encodeURIComponent(p.name)+'&ll='+p.lat+','+p.lng;
-      var fmgf='https://www.google.com/search?q='+encodeURIComponent('site:findmeglutenfree.com '+p.name);
+      // Straight into Find Me GF's own search, centred on this restaurant. If they
+      // have it, it's the first hit; if not, their nearby GF listings show instead.
+      var fmgf='https://www.findmeglutenfree.com/search?lat='+p.lat+'&lng='+p.lng
+             + '&q='+encodeURIComponent(p.name);
 
       return '<li>'
         + '<div class="top"><h2 class="nm">'+esc(p.name)+'</h2><div class="dist">'+time+'</div></div>'
