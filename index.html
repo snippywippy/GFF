@@ -60,11 +60,35 @@
   }
   select{min-width:0}
   input[type=search]{flex:1;min-width:0}
+  .mini{
+    flex:0 0 auto;border:0;border-radius:10px;background:var(--accent);
+    color:#fff;font:700 14px/1 inherit;padding:0 17px;cursor:pointer;
+  }
+  @media (prefers-color-scheme: dark){ .mini{color:#0d1512} }
+  .mini:disabled{opacity:.55}
+  #origin{max-width:680px;margin:11px auto 0;padding:0 16px;font-size:13px;color:var(--muted);text-align:center}
+  #origin b{color:var(--ink);font-weight:650}
+  #origin button{
+    background:none;border:0;color:var(--accent);font:inherit;font-weight:650;
+    text-decoration:underline;cursor:pointer;padding:0;margin-left:6px;
+  }
   .go{
     width:100%;border:0;border-radius:12px;background:var(--accent);
     color:#fff;font:700 16px/1 inherit;padding:15px;margin-top:2px;cursor:pointer;
   }
-  @media (prefers-color-scheme: dark){ .go{color:#0d1512} }
+  @media (prefers-color-scheme: dark){ .mini{
+    flex:0 0 auto;border:0;border-radius:10px;background:var(--accent);
+    color:#fff;font:700 14px/1 inherit;padding:0 17px;cursor:pointer;
+  }
+  @media (prefers-color-scheme: dark){ .mini{color:#0d1512} }
+  .mini:disabled{opacity:.55}
+  #origin{max-width:680px;margin:11px auto 0;padding:0 16px;font-size:13px;color:var(--muted);text-align:center}
+  #origin b{color:var(--ink);font-weight:650}
+  #origin button{
+    background:none;border:0;color:var(--accent);font:inherit;font-weight:650;
+    text-decoration:underline;cursor:pointer;padding:0;margin-left:6px;
+  }
+  .go{color:#0d1512} }
   .go:disabled{opacity:.55}
 
   #status{padding:22px 16px;text-align:center;color:var(--muted);font-size:14.5px;max-width:680px;margin:0 auto}
@@ -123,12 +147,17 @@
       <div class="row">
         <input type="search" id="q" placeholder="pizza, breakfast, sushi…" autocomplete="off" enterkeyhint="search">
       </div>
+      <div class="row">
+        <input type="search" id="place" placeholder="Somewhere else — city, zip, address" autocomplete="off" enterkeyhint="go">
+        <button class="mini" id="goPlace">Go</button>
+      </div>
       <button class="go" id="go">Find places near me</button>
     </div>
   </div>
 </header>
 
-<div id="status">Tap the button — GFF uses your current location.</div>
+<div id="origin" hidden></div>
+<div id="status">Tap the button below, or type a place to look somewhere else.</div>
 <ul id="list"></ul>
 
 <footer>
@@ -139,7 +168,7 @@
 
 <script>
 (function(){
-  var mode='friendly', coords=null, last=[], estimated=false;
+  var mode='friendly', coords=null, last=[], estimated=false, originLabel=null;
   var $=function(id){return document.getElementById(id)};
   var statusEl=$('status'), listEl=$('list'), goBtn=$('go');
 
@@ -162,6 +191,44 @@
   $('q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); this.blur(); locate(); }});
 
   goBtn.onclick=locate;
+  $('goPlace').onclick=usePlace;
+  $('place').addEventListener('keydown',function(e){
+    if(e.key==='Enter'){ e.preventDefault(); this.blur(); usePlace(); }
+  });
+
+  function showOrigin(){
+    var el=$('origin');
+    if(!originLabel){ el.hidden=true; el.innerHTML=''; return; }
+    el.hidden=false;
+    el.innerHTML='Showing places near <b>'+esc(originLabel)+'</b>'
+               + '<button type="button" id="resetOrigin">Use my location</button>';
+    $('resetOrigin').onclick=function(){
+      $('place').value=''; originLabel=null; showOrigin(); locate();
+    };
+  }
+
+  function usePlace(){
+    var q=$('place').value.trim();
+    if(!q){ return $('place').focus(); }
+    var btn=$('goPlace');
+    btn.disabled=true; goBtn.disabled=true;
+    say('Looking up '+q+'\u2026');
+    listEl.innerHTML='';
+    fetch('/api/geocode?q='+encodeURIComponent(q))
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        btn.disabled=false;
+        if(!res.ok){ goBtn.disabled=false; return say(res.j.error||'Could not find that place.',true); }
+        coords={lat:res.j.lat, lng:res.j.lng};
+        originLabel=res.j.label;
+        showOrigin();
+        search();
+      })
+      .catch(function(e){
+        btn.disabled=false; goBtn.disabled=false;
+        say('Network error: '+e.message,true);
+      });
+  }
 
   function locate(){
     if(!navigator.geolocation){ return say('This browser will not share a location.',true); }
@@ -170,13 +237,14 @@
     listEl.innerHTML='';
     navigator.geolocation.getCurrentPosition(function(pos){
       coords={lat:pos.coords.latitude, lng:pos.coords.longitude};
+      originLabel=null; showOrigin();
       search();
     },function(err){
       goBtn.disabled=false;
       if(err.code===1){
-        say('Location permission is off. On iPhone: Settings \u2192 Privacy & Security \u2192 Location Services \u2192 Safari Websites \u2192 While Using, then reload.',true);
+        say('Location permission is off. On iPhone: Settings \u2192 Privacy & Security \u2192 Location Services \u2192 Safari Websites \u2192 While Using, then reload. Or type a place in the box above.',true);
       }else{
-        say('Could not get a location fix. Try again near a window or on Wi-Fi.',true);
+        say('Could not get a location fix. Type a city, zip, or address in the box above instead.',true);
       }
     },{enableHighAccuracy:true, timeout:12000, maximumAge:120000});
   }
