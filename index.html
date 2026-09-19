@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GFF</title>
+<meta name="description" content="Gluten Free Finder — celiac-safe restaurants near you.">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1b3a2f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GFF">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<style>
+  :root{
+    --bg:#f6f5f1; --card:#ffffff; --ink:#15211c; --muted:#5f6f68;
+    --line:#e2e5e0; --accent:#1b3a2f; --accent-soft:#e7efe9;
+    --gold:#c8892a; --danger:#b3443a;
+    --radius:14px;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111714; --card:#1a231f; --ink:#eef2ef; --muted:#9aa8a2;
+      --line:#2a3630; --accent:#7fc9a6; --accent-soft:#1e2c26;
+      --gold:#e0a950; --danger:#e07a70;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+    padding-bottom:calc(24px + var(--safe-b));
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    position:sticky; top:0; z-index:20;
+    background:var(--bg);
+    padding:calc(12px + env(safe-area-inset-top,0px)) 16px 10px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:baseline;gap:8px}
+  .brand h1{margin:0;font-size:21px;letter-spacing:-.02em;font-weight:700}
+  .brand span{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .wrap{padding:0 16px;max-width:680px;margin:0 auto}
+
+  .controls{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .row{display:flex;gap:8px}
+  .seg{display:flex;background:var(--accent-soft);border-radius:10px;padding:3px;flex:1}
+  .seg button{
+    flex:1;border:0;background:transparent;color:var(--muted);
+    font:600 13px/1 inherit;padding:9px 6px;border-radius:8px;cursor:pointer;
+  }
+  .seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  select,input[type=search]{
+    font:inherit;font-size:15px;color:var(--ink);background:var(--card);
+    border:1px solid var(--line);border-radius:10px;padding:10px 11px;
+    appearance:none;-webkit-appearance:none;
+  }
+  select{min-width:0}
+  input[type=search]{flex:1;min-width:0}
+  .go{
+    width:100%;border:0;border-radius:12px;background:var(--accent);
+    color:#fff;font:700 16px/1 inherit;padding:15px;margin-top:2px;cursor:pointer;
+  }
+  @media (prefers-color-scheme: dark){ .go{color:#0d1512} }
+  .go:disabled{opacity:.55}
+
+  #status{padding:22px 16px;text-align:center;color:var(--muted);font-size:14.5px;max-width:680px;margin:0 auto}
+  #status.error{color:var(--danger)}
+  #status a{color:inherit}
+
+  ul{list-style:none;margin:14px auto 0;padding:0 16px;max-width:680px;display:flex;flex-direction:column;gap:10px}
+  li{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:13px 14px;
+  }
+  .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .nm{margin:0;font-size:16.5px;font-weight:650;letter-spacing:-.01em;line-height:1.25}
+  .dist{flex:0 0 auto;font-size:13px;font-weight:650;color:var(--accent);padding-top:2px;white-space:nowrap}
+  .meta{margin:5px 0 0;font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 9px;align-items:center}
+  .star{color:var(--gold);font-weight:650}
+  .open{color:#2e8b57;font-weight:600}
+  @media (prefers-color-scheme: dark){ .open{color:#5fcf95} }
+  .shut{color:var(--danger);font-weight:600}
+  .addr{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+  .acts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:11px}
+  .acts a{
+    text-align:center;text-decoration:none;
+    font:600 13px/1 inherit;padding:11px 6px;border-radius:9px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    border:1px solid var(--line);color:var(--ink);background:transparent;
+  }
+  .acts a.pri{grid-column:1/-1;background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+  footer{max-width:680px;margin:26px auto 0;padding:0 16px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand"><h1>GFF</h1><span>Gluten Free Finder</span></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Search mode">
+        <button id="mFriendly" aria-pressed="true">GF friendly</button>
+        <button id="mDedicated" aria-pressed="false">Dedicated GF</button>
+      </div>
+      <div class="row">
+        <select id="radius" aria-label="Search radius" style="flex:1">
+          <option value="3000">Within 2 mi</option>
+          <option value="8000" selected>Within 5 mi</option>
+          <option value="16000">Within 10 mi</option>
+          <option value="40000">Within 25 mi</option>
+        </select>
+        <select id="sort" aria-label="Sort by" style="flex:1">
+          <option value="dist">Nearest first</option>
+          <option value="rating">Top rated</option>
+        </select>
+      </div>
+      <div class="row">
+        <input type="search" id="q" placeholder="pizza, breakfast, sushi…" autocomplete="off" enterkeyhint="search">
+      </div>
+      <button class="go" id="go">Find places near me</button>
+    </div>
+  </div>
+</header>
+
+<div id="status">Tap the button — GFF uses your current location.</div>
+<ul id="list"></ul>
+
+<footer>
+  Ratings and listings from Google. Always call ahead and confirm prep practices —<br>
+  cross-contact risk is not something a star rating can tell you.
+</footer>
+
+<script>
+(function(){
+  var mode='friendly', coords=null, last=[];
+  var $=function(id){return document.getElementById(id)};
+  var statusEl=$('status'), listEl=$('list'), goBtn=$('go');
+
+  function say(msg,isErr){
+    statusEl.textContent=msg;
+    statusEl.className=isErr?'error':'';
+    statusEl.style.display='';
+  }
+
+  $('mFriendly').onclick=function(){setMode('friendly')};
+  $('mDedicated').onclick=function(){setMode('dedicated')};
+  function setMode(m){
+    mode=m;
+    $('mFriendly').setAttribute('aria-pressed', m==='friendly');
+    $('mDedicated').setAttribute('aria-pressed', m==='dedicated');
+    if(coords) search();
+  }
+  $('sort').onchange=function(){ render(last); };
+  $('radius').onchange=function(){ if(coords) search(); };
+  $('q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); this.blur(); locate(); }});
+
+  goBtn.onclick=locate;
+
+  function locate(){
+    if(!navigator.geolocation){ return say('This browser will not share a location.',true); }
+    goBtn.disabled=true;
+    say('Getting your location…');
+    listEl.innerHTML='';
+    navigator.geolocation.getCurrentPosition(function(pos){
+      coords={lat:pos.coords.latitude, lng:pos.coords.longitude};
+      search();
+    },function(err){
+      goBtn.disabled=false;
+      if(err.code===1){
+        say('Location permission is off. On iPhone: Settings → Privacy & Security → Location Services → Safari Websites → While Using, then reload.',true);
+      }else{
+        say('Could not get a location fix. Try again near a window or on Wi-Fi.',true);
+      }
+    },{enableHighAccuracy:true, timeout:12000, maximumAge:120000});
+  }
+
+  function search(){
+    goBtn.disabled=true;
+    say('Searching…');
+    var u='/api/search?lat='+coords.lat+'&lng='+coords.lng
+         +'&radius='+$('radius').value+'&mode='+mode
+         +'&q='+encodeURIComponent($('q').value||'');
+    fetch(u).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+    .then(function(res){
+      goBtn.disabled=false;
+      if(!res.ok){
+        var m=res.j&&res.j.message||'Search failed.';
+        if(res.j&&res.j.error==='missing_key'){
+          m='No Google API key configured yet. Add GOOGLE_MAPS_API_KEY in Vercel → Settings → Environment Variables, then redeploy.';
+        }
+        return say(m,true);
+      }
+      last=res.j.places||[];
+      if(!last.length){
+        return say('Nothing found in that radius. Try a wider radius or switch to GF friendly.');
+      }
+      statusEl.style.display='none';
+      render(last);
+    })
+    .catch(function(e){
+      goBtn.disabled=false;
+      say('Network error: '+e.message,true);
+    });
+  }
+
+  function miles(a,b){
+    var R=3958.8, t=Math.PI/180;
+    var dLat=(b.lat-a.lat)*t, dLng=(b.lng-a.lng)*t;
+    var x=Math.sin(dLat/2)*Math.sin(dLat/2)
+        + Math.cos(a.lat*t)*Math.cos(b.lat*t)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+  }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function render(items){
+    var rows=items.map(function(p){
+      p._mi = (p.lat!=null&&p.lng!=null) ? miles(coords,p) : 9999;
+      return p;
+    });
+    if($('sort').value==='rating'){
+      rows.sort(function(a,b){ return (b.rating||0)-(a.rating||0) || a._mi-b._mi; });
+    }else{
+      rows.sort(function(a,b){ return a._mi-b._mi; });
+    }
+
+    listEl.innerHTML=rows.map(function(p){
+      var stars = p.rating
+        ? '<span class="star">★ '+p.rating.toFixed(1)+'</span><span>('+p.reviews+')</span>'
+        : '<span>No rating</span>';
+      var open = p.openNow===true ? '<span class="open">Open</span>'
+               : p.openNow===false ? '<span class="shut">Closed</span>' : '';
+      var type = p.type ? '<span>'+esc(p.type)+'</span>' : '';
+      var d = p._mi<9999 ? p._mi.toFixed(1)+' mi' : '';
+
+      var maps='https://maps.apple.com/?q='+encodeURIComponent(p.name)+'&ll='+p.lat+','+p.lng;
+      var fmgf='https://www.google.com/search?q='+encodeURIComponent('site:findmeglutenfree.com '+p.name);
+
+      return '<li>'
+        + '<div class="top"><h2 class="nm">'+esc(p.name)+'</h2><div class="dist">'+d+'</div></div>'
+        + '<p class="meta">'+stars+open+type+'</p>'
+        + '<p class="addr">'+esc(p.address)+'</p>'
+        + '<div class="acts">'
+        +   '<a class="pri" href="'+fmgf+'" target="_blank" rel="noopener">Find Me GF</a>'
+        +   '<a href="'+maps+'" target="_blank" rel="noopener">Directions</a>'
+        +   (p.phone?'<a href="tel:'+esc(p.phone.replace(/[^0-9+]/g,''))+'">Call</a>':'')
+        +   (p.website?'<a href="'+esc(p.website)+'" target="_blank" rel="noopener">Menu</a>':'')
+        + '</div></li>';
+    }).join('');
+  }
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+  }
+})();
+</script>
+</body>
+</html>
