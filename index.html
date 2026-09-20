@@ -152,6 +152,18 @@
   .acts a.pri{grid-column:1/-1;background:var(--accent-soft);border-color:transparent;color:var(--accent)}
   footer{max-width:680px;margin:26px auto 0;padding:0 16px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.65}
   footer strong{color:var(--ink);font-weight:600}
+
+  .credit{max-width:680px;margin:24px auto 0;padding:0 16px;text-align:center}
+  .credit img{
+    width:96px;height:96px;border-radius:50%;object-fit:cover;display:block;margin:0 auto;
+    border:3px solid var(--card);box-shadow:0 2px 10px rgba(0,0,0,.15);
+  }
+  .names{
+    margin:11px 0 0;font-size:15px;font-weight:650;color:var(--ink);
+    font-family:ui-serif,'Iowan Old Style',Georgia,'Times New Roman',serif;
+  }
+  .names .hx{color:var(--gold);font-size:13px;vertical-align:1px;margin:0 4px}
+
 </style>
 </head>
 <body>
@@ -194,6 +206,11 @@
 <div id="origin" hidden></div>
 <div id="status">Use your location, or search any city, zip, or address.</div>
 <ul id="list"></ul>
+
+<section class="credit">
+  <img src="/img/us-square.jpg" alt="Annahita and Austin" width="440" height="440">
+  <p class="names">To: Annahita <span class="hx">&#10084;</span> Austin</p>
+</section>
 
 <footer>
   These are Google matches for gluten-free terms &mdash; not a celiac-vetted list.<br>
